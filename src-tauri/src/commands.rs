@@ -91,8 +91,10 @@ pub async fn session_status(
                 Ok(None)
             }
         }
-        Err(_) => {
-            session::clear(&state.config_dir);
+        Err(e) => {
+            if matches!(e, AppError::Unauthorized) {
+                session::clear(&state.config_dir);
+            }
             Ok(None)
         }
     }
@@ -158,10 +160,27 @@ pub async fn update_device(
     let summary = match kind_enum {
         DeviceKind::Igo8 => {
             let mut acc = WriteSummary::default();
+            let mut failed = Vec::new();
             for folder in &folders {
-                let s = writer::write_igo8(folder, &bytes)?;
-                acc.files_written.extend(s.files_written);
-                acc.files_deleted.extend(s.files_deleted);
+                match writer::write_igo8(folder, &bytes) {
+                    Ok(s) => {
+                        acc.files_written.extend(s.files_written);
+                        acc.files_deleted.extend(s.files_deleted);
+                    }
+                    Err(e) => failed.push((folder.clone(), e)),
+                }
+            }
+            if !failed.is_empty() {
+                let details: Vec<String> = failed
+                    .iter()
+                    .map(|(p, _)| p.to_string_lossy().to_string())
+                    .collect();
+                let ok_count = folders.len() - failed.len();
+                return Err(AppError::Io(format!(
+                    "{ok_count} de {} pastas atualizadas; falha em: {}",
+                    folders.len(),
+                    details.join(", ")
+                )));
             }
             acc
         }

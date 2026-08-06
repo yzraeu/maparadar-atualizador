@@ -41,7 +41,9 @@ pub fn write_ndrive(targets: &[PathBuf], data: &[u8]) -> Result<WriteSummary, Ap
     for target in targets {
         std::fs::create_dir_all(target)?;
         let dest = target.join("maparadar.kml");
-        std::fs::write(&dest, data)?;
+        let tmp = target.join("maparadar.kml.tmp");
+        std::fs::write(&tmp, data)?;
+        std::fs::rename(&tmp, &dest)?;
         summary.files_written.push(dest);
     }
     Ok(summary)
