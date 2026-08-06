@@ -50,7 +50,11 @@ impl Serialize for AppError {
 
 impl From<reqwest::Error> for AppError {
     fn from(e: reqwest::Error) -> Self {
-        AppError::Network(e.to_string())
+        if e.is_decode() {
+            AppError::Api(format!("resposta inválida do servidor: {e}"))
+        } else {
+            AppError::Network(e.to_string())
+        }
     }
 }
 

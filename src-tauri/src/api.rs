@@ -41,7 +41,11 @@ struct PreviewBody {
 impl ApiClient {
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .connect_timeout(std::time::Duration::from_secs(10))
+                .build()
+                .expect("failed to build http client"),
             base_url: base_url.into().trim_end_matches('/').to_string(),
         }
     }
@@ -289,5 +293,67 @@ mod tests {
         });
         let api = ApiClient::new(server.base_url());
         assert_eq!(api.preview_count("1,2").await.unwrap(), 42);
+    }
+
+    #[tokio::test]
+    async fn refresh_401_maps_to_unauthorized() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path("/auth/refresh");
+            then.status(401);
+        });
+        let api = ApiClient::new(server.base_url());
+        let err = api.refresh("stale").await.unwrap_err();
+        assert!(matches!(err, AppError::Unauthorized));
+    }
+
+    #[tokio::test]
+    async fn login_server_error_maps_to_api_error() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path("/auth/login");
+            then.status(500);
+        });
+        let api = ApiClient::new(server.base_url());
+        let err = api.login("izzy", "pw").await.unwrap_err();
+        assert!(matches!(err, AppError::Api(_)));
+    }
+
+    #[tokio::test]
+    async fn refresh_keeps_old_token_when_no_rotation_cookie() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path("/auth/refresh");
+            then.status(200)
+                .header("Content-Type", "application/json")
+                .json_body(serde_json::json!({
+                    "access_token": "new-jwt",
+                    "expires_in": 86400,
+                    "user": { "id": 1, "username": "izzy", "groupId": 2 }
+                }));
+        });
+        let api = ApiClient::new(server.base_url());
+        let auth = api.refresh("old-token").await.unwrap();
+        assert_eq!(auth.refresh_token, "old-token");
+    }
+
+    #[tokio::test]
+    async fn extract_cookie_picks_named_cookie_among_many() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path("/auth/login");
+            then.status(200)
+                .header("Content-Type", "application/json")
+                .header("Set-Cookie", "session_id=xyz; Path=/; HttpOnly")
+                .header("Set-Cookie", "maparadar_refresh=abc123; Path=/; HttpOnly")
+                .json_body(serde_json::json!({
+                    "access_token": "jwt-token",
+                    "expires_in": 86400,
+                    "user": { "id": 1, "username": "izzy", "groupId": 2 }
+                }));
+        });
+        let api = ApiClient::new(server.base_url());
+        let auth = api.login("izzy", "pw").await.unwrap();
+        assert_eq!(auth.refresh_token, "abc123");
     }
 }
