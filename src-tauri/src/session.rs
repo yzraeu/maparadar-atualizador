@@ -12,7 +12,7 @@ pub struct Session {
 
 impl Session {
     pub fn is_valid(&self, now_unix: i64) -> bool {
-        self.expires_at_unix > now_unix
+        !self.access_token.is_empty() && self.expires_at_unix > now_unix
     }
 }
 
@@ -22,18 +22,26 @@ pub fn session_path(config_dir: &Path) -> PathBuf {
 
 pub fn load(config_dir: &Path) -> Result<Option<Session>, AppError> {
     let path = session_path(config_dir);
-    if !path.exists() {
-        return Ok(None);
+    let raw = match std::fs::read_to_string(&path) {
+        Ok(raw) => raw,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e.into()),
+    };
+    match serde_json::from_str(&raw) {
+        Ok(session) => Ok(Some(session)),
+        Err(_) => {
+            let _ = std::fs::remove_file(&path);
+            Ok(None)
+        }
     }
-    let raw = std::fs::read_to_string(&path)?;
-    let session = serde_json::from_str(&raw).map_err(|e| AppError::Session(e.to_string()))?;
-    Ok(Some(session))
 }
 
 pub fn save(config_dir: &Path, session: &Session) -> Result<(), AppError> {
     std::fs::create_dir_all(config_dir)?;
     let raw = serde_json::to_string_pretty(session).map_err(|e| AppError::Session(e.to_string()))?;
-    std::fs::write(session_path(config_dir), raw)?;
+    let tmp = session_path(config_dir).with_extension("json.tmp");
+    std::fs::write(&tmp, raw)?;
+    std::fs::rename(tmp, session_path(config_dir))?;
     Ok(())
 }
 
@@ -59,6 +67,7 @@ mod tests {
         let loaded = load(dir.path()).unwrap().unwrap();
         assert_eq!(loaded.username, "izzy");
         assert!(loaded.is_valid(999));
+        assert!(!loaded.is_valid(1_000));
         assert!(!loaded.is_valid(1_001));
         clear(dir.path());
         assert!(load(dir.path()).unwrap().is_none());
@@ -68,5 +77,27 @@ mod tests {
     fn load_missing_returns_none() {
         let dir = tempdir().unwrap();
         assert!(load(dir.path()).unwrap().is_none());
+    }
+
+    #[test]
+    fn is_valid_is_exclusive_boundary() {
+        let dir = tempdir().unwrap();
+        let s = Session {
+            username: "izzy".into(),
+            access_token: "jwt".into(),
+            refresh_token: "r".into(),
+            expires_at_unix: 1_000,
+        };
+        save(dir.path(), &s).unwrap();
+        let loaded = load(dir.path()).unwrap().unwrap();
+        assert!(!loaded.is_valid(1_000));
+    }
+
+    #[test]
+    fn load_corrupt_file_returns_none() {
+        let dir = tempdir().unwrap();
+        std::fs::write(dir.path().join("session.json"), "{ not json").unwrap();
+        assert!(load(dir.path()).unwrap().is_none());
+        assert!(!session_path(dir.path()).exists());
     }
 }
