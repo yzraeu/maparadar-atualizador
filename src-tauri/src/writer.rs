@@ -20,7 +20,6 @@ pub fn write_igo8(target: &Path, data: &[u8]) -> Result<WriteSummary, AppError> 
             let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
             let should_delete = ext.eq_ignore_ascii_case("spdb")
-                || ext.eq_ignore_ascii_case("txt")
                 || name.eq_ignore_ascii_case("speedcam.txt");
             if should_delete {
                 std::fs::remove_file(&path)?;
@@ -56,15 +55,16 @@ mod tests {
     fn igo8_cleans_spdb_and_stale_txt_then_writes() {
         let dir = tempdir().unwrap();
         std::fs::write(dir.path().join("old.spdb"), b"x").unwrap();
-        std::fs::write(dir.path().join("stale.txt"), b"x").unwrap();
+        std::fs::write(dir.path().join("speedcam.txt"), b"old").unwrap();
         std::fs::write(dir.path().join("keep.log"), b"x").unwrap();
+        std::fs::write(dir.path().join("notes.txt"), b"x").unwrap();
 
         let s = write_igo8(dir.path(), b"NEW").unwrap();
 
         assert_eq!(s.files_deleted.len(), 2);
         assert!(!dir.path().join("old.spdb").exists());
-        assert!(!dir.path().join("stale.txt").exists());
         assert!(dir.path().join("keep.log").exists());
+        assert!(dir.path().join("notes.txt").exists());
         assert_eq!(std::fs::read_to_string(dir.path().join("speedcam.txt")).unwrap(), "NEW");
     }
 
