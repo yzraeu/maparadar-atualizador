@@ -66,6 +66,9 @@ impl ApiClient {
         if resp.status().as_u16() == 401 {
             return Err(AppError::InvalidLogin);
         }
+        if resp.status().as_u16() == 429 {
+            return Err(AppError::Api("Muitas tentativas de login. Aguarde e tente novamente.".into()));
+        }
         if !resp.status().is_success() {
             return Err(AppError::Api(format!("login retornou {}", resp.status())));
         }
@@ -305,6 +308,18 @@ mod tests {
         let api = ApiClient::new(server.base_url());
         let err = api.refresh("stale").await.unwrap_err();
         assert!(matches!(err, AppError::Unauthorized));
+    }
+
+    #[tokio::test]
+    async fn login_429_maps_to_rate_limit_message() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path("/auth/login");
+            then.status(429);
+        });
+        let api = ApiClient::new(server.base_url());
+        let err = api.login("izzy", "pw").await.unwrap_err();
+        assert!(matches!(err, AppError::Api(_)));
     }
 
     #[tokio::test]

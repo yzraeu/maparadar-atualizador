@@ -20,7 +20,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://api.maparadar.com https://github.com https://objects.githubusercontent.com https://github-releases.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://api.maparadar.com https://github.com https://objects.githubusercontent.com https://github-releases.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'",
+      "devCsp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420 https://api.maparadar.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
     }
   },
   "bundle": {

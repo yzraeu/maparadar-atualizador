@@ -56,8 +56,13 @@ jobs:
             echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Add it as a repository secret before tagging a release."
             exit 1
           fi
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not set. Add it as a repository secret before tagging a release."
+            exit 1
+          fi
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       # macOS artifacts are ad-hoc signed (updater manifest signed via
       # TAURI_SIGNING_PRIVATE_KEY, but not Apple Developer ID signed). Until

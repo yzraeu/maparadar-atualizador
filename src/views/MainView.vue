@@ -71,8 +71,14 @@ async function doUpdate() {
     messageOk.value = true
     message.value = `Arquivo atualizado: ${s.filesWritten.join(', ')}`
   } catch (e) {
+    const err = toAppError(e)
     messageOk.value = false
-    message.value = toAppError(e).message
+    if (err.kind === 'unauthorized') {
+      apiLogout()
+      emit('logout')
+      return
+    }
+    message.value = err.message
   } finally {
     busy.value = false
   }
