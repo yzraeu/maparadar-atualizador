@@ -6,6 +6,7 @@
   --muted: #6b7280;
   --ok: #16a34a;
   --err: #dc2626;
+  --border: #d1d5db;
 }
 
 * { box-sizing: border-box; }

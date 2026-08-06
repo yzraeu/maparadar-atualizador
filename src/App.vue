@@ -7,8 +7,12 @@ import MainView from './views/MainView.vue'
 const loggedIn = ref<boolean | null>(null)
 
 onMounted(async () => {
-  const s = await sessionStatus()
-  loggedIn.value = s !== null
+  try {
+    const s = await sessionStatus()
+    loggedIn.value = s !== null
+  } catch {
+    loggedIn.value = false
+  }
 })
 
 function onLoggedIn() {
@@ -24,7 +28,7 @@ function onLogout() {
   <div class="app">
     <LoginView v-if="loggedIn === false" @logged-in="onLoggedIn" />
     <MainView v-else-if="loggedIn === true" @logout="onLogout" />
-    <div v-else class="loading">Carregando…</div>
+    <div v-else role="status" class="loading">Carregando…</div>
   </div>
 </template>
 
