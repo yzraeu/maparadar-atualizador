@@ -14,7 +14,9 @@ pub struct ApiClient {
 pub struct AuthResponse {
     pub access_token: String,
     pub expires_in: i64,
+    #[allow(dead_code)]
     pub username: String,
+    #[allow(dead_code)]
     pub group_id: i64,
     pub refresh_token: String,
 }
@@ -146,8 +148,9 @@ impl ApiClient {
     pub async fn preview_count(&self, radar_types: &str) -> Result<u32, AppError> {
         let resp = self
             .client
-            .get(self.url(&format!("export/preview?radarTypes={radar_types}")))
+            .get(self.url("export/preview"))
             .header("X-Application", X_APP)
+            .query(&[("radarTypes", radar_types)])
             .send()
             .await?;
 

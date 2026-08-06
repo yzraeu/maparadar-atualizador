@@ -28,12 +28,31 @@ function onLogout() {
   <div class="app">
     <LoginView v-if="loggedIn === false" @logged-in="onLoggedIn" />
     <MainView v-else-if="loggedIn === true" @logout="onLogout" />
-    <div v-else role="status" class="loading">Carregando…</div>
+    <div v-else role="status" class="loading">
+      <span class="spinner"></span>
+      Carregando…
+    </div>
   </div>
 </template>
 
 <style scoped>
 .loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
   color: var(--muted);
+  font-size: 1rem;
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

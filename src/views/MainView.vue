@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { check } from '@tauri-apps/plugin-updater'
+import { check, type Update } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import {
   detectDevice,
@@ -25,8 +25,11 @@ const message = ref('')
 const messageOk = ref(true)
 let timer: number | undefined
 let countRequest = 0
+let debounceTimer: number | undefined
+let scanInFlight = false
 const updateAvailable = ref(false)
 const updateBusy = ref(false)
+const updateHandle = shallowRef<Update | null>(null)
 
 const currentDevice = computed(() => devices.value[0])
 const radarTypes = computed(() => radarTypesString([...selected.value]))
@@ -54,11 +57,20 @@ async function refreshCount() {
   }
 }
 
+function debouncedRefreshCount() {
+  window.clearTimeout(debounceTimer)
+  debounceTimer = window.setTimeout(refreshCount, 250)
+}
+
 async function refreshDevices() {
+  if (scanInFlight) return
+  scanInFlight = true
   try {
     devices.value = await detectDevice()
   } catch {
     // transient detect failure: keep previous device state, don't flip UI
+  } finally {
+    scanInFlight = false
   }
 }
 
@@ -87,8 +99,10 @@ async function doUpdate() {
 async function checkForUpdate() {
   try {
     const update = await check()
+    updateHandle.value = update
     updateAvailable.value = !!update
   } catch {
+    updateHandle.value = null
     updateAvailable.value = false
   }
 }
@@ -96,12 +110,12 @@ async function checkForUpdate() {
 async function installUpdate() {
   updateBusy.value = true
   try {
-    const update = await check()
-    if (update) {
-      await update.downloadAndInstall()
+    if (updateHandle.value) {
+      await updateHandle.value.downloadAndInstall()
       await relaunch()
     }
   } catch (e) {
+    updateHandle.value = null
     message.value = toAppError(e).message
     messageOk.value = false
   } finally {
@@ -127,9 +141,12 @@ onMounted(async () => {
   checkForUpdate()
 })
 
-onUnmounted(() => window.clearInterval(timer))
+onUnmounted(() => {
+  window.clearInterval(timer)
+  window.clearTimeout(debounceTimer)
+})
 
-watch(radarTypes, refreshCount)
+watch(radarTypes, debouncedRefreshCount)
 </script>
 
 <template>
@@ -156,7 +173,10 @@ watch(radarTypes, refreshCount)
         <div class="device-name">{{ currentDevice.display }}</div>
         <div class="device-drive">{{ currentDevice.drive }}</div>
       </template>
-      <p v-else class="hint">Conecte um dispositivo GPS compatível (iGO ou NDrive).</p>
+      <div v-else class="device-waiting">
+        <span class="spinner"></span>
+        Aguardando dispositivo ser conectado na porta USB.
+      </div>
     </section>
 
     <section class="card">
@@ -202,15 +222,30 @@ nav { display: flex; gap: 8px; }
 h2 { margin: 0 0 12px; font-size: 1rem; }
 .device-name { font-size: 1.2rem; font-weight: 700; }
 .device-drive { color: var(--muted); font-size: 0.9rem; }
+.device-waiting {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--muted); font-size: 0.9rem;
+}
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 .hint { color: var(--muted); margin: 0; font-size: 0.9rem; }
 .pills { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .pill {
-  display: flex; align-items: center; gap: 8px; padding: 8px;
-  border: 2px solid var(--border, #e5e7eb); border-radius: 8px; cursor: pointer; font-size: 0.85rem;
+  display: flex; align-items: center; gap: 10px; padding: 12px;
+  border: 2px solid var(--border, #e5e7eb); border-radius: 10px; cursor: pointer; font-size: 0.95rem;
   user-select: none;
 }
 .pill.active { border-color: var(--brand); background: #fef2f2; }
-.pill img { width: 28px; height: 28px; }
+.pill img { width: 34px; height: 34px; }
 .pill input {
   position: absolute; opacity: 0; width: 1px; height: 1px; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
@@ -225,7 +260,12 @@ h2 { margin: 0 0 12px; font-size: 1rem; }
 .update-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .update-banner span { font-size: 0.95rem; }
 .small { width: auto; padding: 8px 14px; font-size: 0.9rem; }
-.message { text-align: center; font-size: 0.9rem; margin: 8px 0 0; }
+.message {
+  text-align: center; font-size: 0.9rem; margin: 12px 0 0;
+  padding: 10px 12px; border-radius: 8px; line-height: 1.5;
+}
+.message.ok { color: var(--ok); background: #f0fdf4; }
+.message.error { color: var(--err); background: #fef2f2; }
 .message.ok { color: var(--ok); }
 .message.error { color: var(--err); }
 </style>

@@ -7,6 +7,7 @@ mod session;
 mod writer;
 
 use std::path::PathBuf;
+use tauri::Manager;
 
 pub struct AppState {
     api: api::ApiClient,
@@ -23,6 +24,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.center();
+            }
+            Ok(())
+        })
         .manage(AppState {
             api: api::ApiClient::new("https://api.maparadar.com"),
             config_dir,

@@ -41,7 +41,15 @@ pub fn save(config_dir: &Path, session: &Session) -> Result<(), AppError> {
     let raw = serde_json::to_string_pretty(session).map_err(|e| AppError::Session(e.to_string()))?;
     let tmp = session_path(config_dir).with_extension("json.tmp");
     std::fs::write(&tmp, raw)?;
-    std::fs::rename(tmp, session_path(config_dir))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600))?;
+    }
+    std::fs::rename(&tmp, session_path(config_dir)).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        AppError::from(e)
+    })?;
     Ok(())
 }
 

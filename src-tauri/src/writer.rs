@@ -15,7 +15,10 @@ pub fn write_igo8(target: &Path, data: &[u8]) -> Result<WriteSummary, AppError> 
     let dest = target.join("speedcam.txt");
     let tmp = target.join("speedcam.txt.tmp");
     std::fs::write(&tmp, data)?;
-    std::fs::rename(&tmp, &dest)?;
+    std::fs::rename(&tmp, &dest).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        AppError::from(e)
+    })?;
     summary.files_written.push(dest);
 
     if target.is_dir() {
@@ -27,8 +30,9 @@ pub fn write_igo8(target: &Path, data: &[u8]) -> Result<WriteSummary, AppError> 
             let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
             let should_delete = ext.eq_ignore_ascii_case("spdb");
             if should_delete {
-                std::fs::remove_file(&path)?;
-                summary.files_deleted.push(path);
+                if std::fs::remove_file(&path).is_ok() {
+                    summary.files_deleted.push(path);
+                }
             }
         }
     }
@@ -36,16 +40,17 @@ pub fn write_igo8(target: &Path, data: &[u8]) -> Result<WriteSummary, AppError> 
     Ok(summary)
 }
 
-pub fn write_ndrive(targets: &[PathBuf], data: &[u8]) -> Result<WriteSummary, AppError> {
+pub fn write_ndrive(target: &Path, data: &[u8]) -> Result<WriteSummary, AppError> {
     let mut summary = WriteSummary::default();
-    for target in targets {
-        std::fs::create_dir_all(target)?;
-        let dest = target.join("maparadar.kml");
-        let tmp = target.join("maparadar.kml.tmp");
-        std::fs::write(&tmp, data)?;
-        std::fs::rename(&tmp, &dest)?;
-        summary.files_written.push(dest);
-    }
+    std::fs::create_dir_all(target)?;
+    let dest = target.join("maparadar.kml");
+    let tmp = target.join("maparadar.kml.tmp");
+    std::fs::write(&tmp, data)?;
+    std::fs::rename(&tmp, &dest).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        AppError::from(e)
+    })?;
+    summary.files_written.push(dest);
     Ok(summary)
 }
 
@@ -86,13 +91,11 @@ mod tests {
     }
 
     #[test]
-    fn ndrive_writes_kml_to_each_folder() {
+    fn ndrive_writes_kml_to_folder() {
         let dir = tempdir().unwrap();
-        let a = dir.path().join("speedcams/a");
-        let b = dir.path().join("speedcams/b");
-        let s = write_ndrive(&vec![a.clone(), b.clone()], b"KML").unwrap();
-        assert_eq!(s.files_written.len(), 2);
-        assert_eq!(std::fs::read_to_string(a.join("maparadar.kml")).unwrap(), "KML");
-        assert_eq!(std::fs::read_to_string(b.join("maparadar.kml")).unwrap(), "KML");
+        let target = dir.path().join("speedcams");
+        let s = write_ndrive(&target, b"KML").unwrap();
+        assert_eq!(s.files_written.len(), 1);
+        assert_eq!(std::fs::read_to_string(target.join("maparadar.kml")).unwrap(), "KML");
     }
 }

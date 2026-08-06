@@ -18,10 +18,12 @@ pub const ALERT_TYPES: &[AlertType] = &[
     AlertType { code: 9, label: "Lombada", icon: "speed_bump", default: false },
 ];
 
+#[allow(dead_code)]
 pub fn default_selected() -> Vec<u8> {
     ALERT_TYPES.iter().filter(|a| a.default).map(|a| a.code).collect()
 }
 
+#[allow(dead_code)]
 pub fn radar_types_string(selected: &[u8]) -> String {
     selected.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(",")
 }
