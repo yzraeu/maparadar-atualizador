@@ -52,7 +52,7 @@ h1 { text-align: center; font-size: 1.35rem; margin: 0 0 4px; }
 .subtitle { text-align: center; color: var(--muted); margin: 0 0 20px; font-size: 0.9rem; }
 form { display: flex; flex-direction: column; gap: 14px; }
 label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--muted); }
-input { padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
+input { padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; color: var(--text); background: var(--card); transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
 button { padding: 12px; background: var(--brand); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
 button:disabled { opacity: 0.6; cursor: not-allowed; }
 .error { color: var(--err); font-size: 0.85rem; margin: 0; }
