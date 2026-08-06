@@ -35,7 +35,15 @@ pub fn removable_mount_points() -> Vec<PathBuf> {
     let disks = sysinfo::Disks::new_with_refreshed_list();
     disks
         .iter()
-        .filter(|d| d.is_removable())
+        .filter(|d| {
+            // sysinfo never populates is_removable() on macOS, so fall back to
+            // the classic /Volumes mount convention there.
+            #[cfg(target_os = "macos")]
+            let removable = d.mount_point().starts_with("/Volumes");
+            #[cfg(not(target_os = "macos"))]
+            let removable = d.is_removable();
+            removable
+        })
         .map(|d| d.mount_point().to_path_buf())
         .collect()
 }
@@ -65,6 +73,9 @@ pub fn detect_in_drive(drive: &Path) -> Option<DetectedDevice> {
         }
     });
 
+    igo8.sort();
+    ndrive.sort();
+
     if igo8.is_empty() && ndrive.is_empty() {
         return None;
     }
@@ -87,6 +98,10 @@ fn scan<F: FnMut(&Path)>(dir: &Path, depth: usize, on_dir: &mut F) {
     on_dir(dir);
     let Ok(entries) = std::fs::read_dir(dir) else { return };
     for entry in entries.flatten() {
+        let Ok(ft) = entry.file_type() else { continue };
+        if ft.is_symlink() {
+            continue;
+        }
         let path = entry.path();
         if !path.is_dir() {
             continue;
@@ -148,5 +163,20 @@ mod tests {
         let dir = tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join(".hidden/speedcams")).unwrap();
         assert!(detect_in_drive(dir.path()).is_none());
+    }
+
+    #[test]
+    fn respects_max_depth_boundary() {
+        let dir = tempdir().unwrap();
+        // speedcams at depth 7 (a/b/c/d/e/f/speedcams) → too deep, not detected
+        let deep = dir.path().join("a/b/c/d/e/f/speedcams");
+        std::fs::create_dir_all(&deep).unwrap();
+        assert!(detect_in_drive(dir.path()).is_none());
+
+        // speedcams at depth 6 (a/b/c/d/e/speedcams) → detected
+        let ok = dir.path().join("a/b/c/d/e/speedcams");
+        std::fs::create_dir_all(&ok).unwrap();
+        let d = detect_in_drive(dir.path()).unwrap();
+        assert_eq!(d.kind, DeviceKind::NDrive);
     }
 }
