@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { check } from '@tauri-apps/plugin-updater'
+import { relaunch } from '@tauri-apps/plugin-process'
 import {
   detectDevice,
   getAlertTypes,
@@ -23,6 +25,8 @@ const message = ref('')
 const messageOk = ref(true)
 let timer: number | undefined
 let countRequest = 0
+const updateAvailable = ref(false)
+const updateBusy = ref(false)
 
 const currentDevice = computed(() => devices.value[0])
 const radarTypes = computed(() => radarTypesString([...selected.value]))
@@ -74,6 +78,30 @@ async function doUpdate() {
   }
 }
 
+async function checkForUpdate() {
+  try {
+    const update = await check()
+    updateAvailable.value = !!update
+  } catch {
+    updateAvailable.value = false
+  }
+}
+
+async function installUpdate() {
+  updateBusy.value = true
+  try {
+    const update = await check()
+    if (update) {
+      await update.downloadAndInstall()
+      await relaunch()
+    }
+  } catch (e) {
+    message.value = toAppError(e).message
+    messageOk.value = false
+    updateBusy.value = false
+  }
+}
+
 function doLogout() {
   apiLogout()
   emit('logout')
@@ -89,6 +117,7 @@ onMounted(async () => {
   selected.value = new Set(alertTypes.value.filter((t) => t.default).map((t) => t.code))
   refreshDevices()
   timer = window.setInterval(refreshDevices, 2000)
+  checkForUpdate()
 })
 
 onUnmounted(() => window.clearInterval(timer))
@@ -106,6 +135,13 @@ watch(radarTypes, refreshCount)
         <button class="link" @click="doLogout">Sair</button>
       </nav>
     </header>
+
+    <section v-if="updateAvailable" class="card update-banner">
+      <span>Nova versão disponível</span>
+      <button class="primary small" :disabled="updateBusy" @click="installUpdate">
+        {{ updateBusy ? 'Atualizando…' : 'Atualizar' }}
+      </button>
+    </section>
 
     <section class="card device">
       <h2>Dispositivo</h2>
@@ -179,6 +215,9 @@ h2 { margin: 0 0 12px; font-size: 1rem; }
   border: none; border-radius: 8px; font-size: 1.05rem; font-weight: 600; cursor: pointer;
 }
 .primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.update-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.update-banner span { font-size: 0.95rem; }
+.small { width: auto; padding: 8px 14px; font-size: 0.9rem; }
 .message { text-align: center; font-size: 0.9rem; margin: 8px 0 0; }
 .message.ok { color: var(--ok); }
 .message.error { color: var(--err); }
