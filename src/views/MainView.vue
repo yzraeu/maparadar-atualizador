@@ -22,12 +22,14 @@ const busy = ref(false)
 const message = ref('')
 const messageOk = ref(true)
 let timer: number | undefined
+let countRequest = 0
 
 const currentDevice = computed(() => devices.value[0])
 const radarTypes = computed(() => radarTypesString([...selected.value]))
 const hasSelection = computed(() => radarTypes.value !== null)
 
 function toggle(code: number) {
+  message.value = ''
   const next = new Set(selected.value)
   if (next.has(code)) next.delete(code)
   else next.add(code)
@@ -35,19 +37,25 @@ function toggle(code: number) {
 }
 
 async function refreshCount() {
+  const req = ++countRequest
   if (radarTypes.value === null) {
     count.value = null
     return
   }
   try {
-    count.value = await previewCount(radarTypes.value)
+    const value = await previewCount(radarTypes.value)
+    if (req === countRequest) count.value = value
   } catch {
-    count.value = null
+    if (req === countRequest) count.value = null
   }
 }
 
 async function refreshDevices() {
-  devices.value = await detectDevice()
+  try {
+    devices.value = await detectDevice()
+  } catch {
+    // transient detect failure: keep previous device state, don't flip UI
+  }
 }
 
 async function doUpdate() {
@@ -72,10 +80,13 @@ function doLogout() {
 }
 
 onMounted(async () => {
-  const types = await getAlertTypes()
-  alertTypes.value = types
-  selected.value = new Set(types.filter((t) => t.default).map((t) => t.code))
-  refreshCount()
+  try {
+    alertTypes.value = await getAlertTypes()
+  } catch {
+    message.value = 'Não foi possível carregar os tipos de alerta.'
+    messageOk.value = false
+  }
+  selected.value = new Set(alertTypes.value.filter((t) => t.default).map((t) => t.code))
   refreshDevices()
   timer = window.setInterval(refreshDevices, 2000)
 })
@@ -90,8 +101,8 @@ watch(radarTypes, refreshCount)
     <header>
       <img src="/logo.svg" alt="MapaRadar" class="logo-sm" />
       <nav>
-        <button class="link" @click="openUrl('http://maparadar.com/atualizador/#contato')">Ajuda</button>
-        <button class="link" @click="openUrl('http://maparadar.com/atualizador/')">Sobre</button>
+        <button class="link" @click="openUrl('https://maparadar.com/atualizador/#contato')">Ajuda</button>
+        <button class="link" @click="openUrl('https://maparadar.com/atualizador/')">Sobre</button>
         <button class="link" @click="doLogout">Sair</button>
       </nav>
     </header>
@@ -119,6 +130,7 @@ watch(radarTypes, refreshCount)
           <span>{{ t.label }}</span>
         </label>
       </div>
+      <p v-if="alertTypes.length === 0" class="hint">Não foi possível carregar os tipos de alerta.</p>
       <p class="count">Pontos a exportar: <strong>{{ count ?? '—' }}</strong></p>
     </section>
 
@@ -130,7 +142,7 @@ watch(radarTypes, refreshCount)
       >
         {{ busy ? 'Atualizando…' : 'Atualizar dispositivo' }}
       </button>
-      <p v-if="message" role="status" class="message" :class="messageOk ? 'ok' : 'error'">
+      <p v-if="message" :role="messageOk ? 'status' : 'alert'" class="message" :class="messageOk ? 'ok' : 'error'">
         {{ message }}
       </p>
     </section>
@@ -156,7 +168,11 @@ h2 { margin: 0 0 12px; font-size: 1rem; }
 }
 .pill.active { border-color: var(--brand); background: #fef2f2; }
 .pill img { width: 28px; height: 28px; }
-.pill input { display: none; }
+.pill input {
+  position: absolute; opacity: 0; width: 1px; height: 1px; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+.pill:focus-within { outline: 2px solid var(--brand); outline-offset: 2px; }
 .count { color: var(--muted); font-size: 0.9rem; margin: 12px 0 0; }
 .primary {
   width: 100%; padding: 14px; background: var(--brand); color: #fff;
