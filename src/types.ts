@@ -4,7 +4,7 @@ export interface SessionInfo {
 }
 
 export interface DeviceInfo {
-  kind: string
+  kind: 'igo8' | 'ndrive'
   display: string
   drive: string
 }
