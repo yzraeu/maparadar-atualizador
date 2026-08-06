@@ -20,3 +20,8 @@ export interface UpdateSummary {
   filesWritten: string[]
   filesDeleted: string[]
 }
+
+export interface AppErrorPayload {
+  kind: string
+  message: string
+}

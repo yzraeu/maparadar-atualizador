@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { AlertType, DeviceInfo, SessionInfo, UpdateSummary } from './types'
+import type { AlertType, AppErrorPayload, DeviceInfo, SessionInfo, UpdateSummary } from './types'
 
 export const getAlertTypes = () => invoke<AlertType[]>('get_alert_types')
 
@@ -15,15 +15,12 @@ export const detectDevice = () => invoke<DeviceInfo[]>('detect_device')
 export const previewCount = (radarTypes: string) =>
   invoke<number>('preview_count', { radarTypes })
 
-export const updateDevice = (kind: string, radarTypes: string) =>
+export const updateDevice = (kind: 'igo8' | 'ndrive', radarTypes: string) =>
   invoke<UpdateSummary>('update_device', { kind, radarTypes })
 
-export const radarTypesString = (selected: number[]) =>
-  [...selected].sort((a, b) => a - b).join(',')
-
-export interface AppErrorPayload {
-  kind: string
-  message: string
+export const radarTypesString = (selected: number[]): string | null => {
+  if (selected.length === 0) return null
+  return [...selected].sort((a, b) => a - b).join(',')
 }
 
 export const toAppError = (e: unknown): AppErrorPayload => {
@@ -42,6 +39,12 @@ export const toAppError = (e: unknown): AppErrorPayload => {
         /* not JSON, fall through */
       }
       return { kind: 'unknown', message: obj.message }
+    }
+    if (obj.message !== undefined) {
+      return { kind: 'unknown', message: String(obj.message) }
+    }
+    if (typeof obj.kind === 'string') {
+      return { kind: obj.kind, message: 'Ocorreu um erro inesperado.' }
     }
   }
   return { kind: 'unknown', message: String(e) }
