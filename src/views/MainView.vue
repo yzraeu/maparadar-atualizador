@@ -98,6 +98,7 @@ async function installUpdate() {
   } catch (e) {
     message.value = toAppError(e).message
     messageOk.value = false
+  } finally {
     updateBusy.value = false
   }
 }
@@ -138,7 +139,7 @@ watch(radarTypes, refreshCount)
 
     <section v-if="updateAvailable" class="card update-banner">
       <span>Nova versão disponível</span>
-      <button class="primary small" :disabled="updateBusy" @click="installUpdate">
+      <button class="primary small" :disabled="updateBusy || busy" @click="installUpdate">
         {{ updateBusy ? 'Atualizando…' : 'Atualizar' }}
       </button>
     </section>
@@ -173,7 +174,7 @@ watch(radarTypes, refreshCount)
     <section class="actions">
       <button
         class="primary"
-        :disabled="!currentDevice || !hasSelection || busy"
+        :disabled="!currentDevice || !hasSelection || busy || updateBusy"
         @click="doUpdate"
       >
         {{ busy ? 'Atualizando…' : 'Atualizar dispositivo' }}

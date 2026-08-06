@@ -4,6 +4,7 @@ src-tauri/target/
 src-tauri/gen/schemas/
 legacy-atualizador-maparadar/
 *.key
+*.key.pub
 .env
 .env.*
 !.env.example
