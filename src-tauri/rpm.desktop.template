@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Atualizador MapaRadar
+Comment=Atualiza radares no seu GPS iGO8 ou NDrive
+Exec=maparadar-atualizador
+Icon=com.maparadar.atualizador
+Terminal=false
+Categories=Utility;Maps;
+StartupWMClass=com.maparadar.atualizador

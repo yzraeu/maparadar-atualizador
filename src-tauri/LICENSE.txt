@@ -1,0 +1,6 @@
+Copyright (c) 2026 MapaRadar.
+Todos os direitos reservados.
+
+Este software e seu código-fonte são proprietários. Nenhuma parte pode ser copiada,
+redistribuída, modificada, sublicenciada ou utilizada sem autorização expressa por escrito
+da MapaRadar.

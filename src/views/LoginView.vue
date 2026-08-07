@@ -27,8 +27,8 @@ async function submit() {
 <template>
   <div class="card">
     <img src="/logo.svg" alt="MapaRadar" class="logo" />
-    <h1>MapaRadar Atualizador</h1>
-    <p class="subtitle">Atualize os radares no seu GPS (iGO ou NDrive)</p>
+    <h1>Atualizador MapaRadar</h1>
+    <p class="subtitle">Atualize os radares no seu GPS (iGO8 ou NDrive)</p>
     <form @submit.prevent="submit">
       <label>
         Usuário

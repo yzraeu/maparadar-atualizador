@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MapaRadar Atualizador",
+  "productName": "Atualizador MapaRadar",
   "version": "0.2.2",
   "identifier": "com.maparadar.atualizador",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "MapaRadar Atualizador",
+        "title": "Atualizador MapaRadar",
         "width": 560,
         "height": 820,
         "resizable": false,
@@ -28,13 +28,38 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
+    "publisher": "MapaRadar",
+    "homepage": "https://maparadar.com/atualizador.html",
+    "category": "Utility",
+    "shortDescription": "Atualizador MapaRadar para GPS iGO8 e NDrive",
+    "longDescription": "Aplicativo desktop oficial da MapaRadar para atualizar automaticamente a base de radares no seu GPS.",
+    "license": "Proprietary",
+    "licenseFile": "LICENSE.txt",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/metainfo/com.maparadar.atualizador.metainfo.xml": "com.maparadar.atualizador.metainfo.xml"
+        }
+      },
+      "appimage": {
+        "files": {
+          "/usr/share/metainfo/com.maparadar.atualizador.metainfo.xml": "com.maparadar.atualizador.metainfo.xml"
+        }
+      },
+      "rpm": {
+        "files": {
+          "/usr/share/metainfo/com.maparadar.atualizador.metainfo.xml": "com.maparadar.atualizador.metainfo.xml"
+        },
+        "desktopTemplate": "rpm.desktop.template"
+      }
+    }
   },
   "plugins": {
     "updater": {

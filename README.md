@@ -1,4 +1,4 @@
-# MapaRadar Atualizador
+# Atualizador MapaRadar
 
 A lightweight cross-platform desktop app (Windows, macOS, Linux) that downloads the latest
 MapaRadar radar database and writes it directly onto your iGO8 or NDrive GPS device.
@@ -86,7 +86,7 @@ The app talks to `https://api.maparadar.com` (hardcoded in `src-tauri/src/lib.rs
 ## Release
 
 Tagging `vX.Y.Z` triggers CI (`tauri-action`) to build signed installers + the updater
-`latest.json` for all three platforms and publish a draft GitHub Release.
+`latest.json` for all three platforms and publish a GitHub Release (non-draft).
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0

@@ -1,4 +1,4 @@
-# MapaRadar Atualizador – Agent Operations Guide
+# Atualizador MapaRadar – Agent Operations Guide
 
 This repository (`maparadar-atualizador`) is the **cross-platform desktop app** that replaces
 the legacy Windows-only WPF updater. It is a **Tauri 2** application: a thin Vue 3 frontend

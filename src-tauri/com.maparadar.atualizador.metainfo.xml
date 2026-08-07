@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.maparadar.atualizador</id>
+  <name>Atualizador MapaRadar</name>
+  <summary>Atualiza radares no seu GPS iGO8 ou NDrive</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <developer id="com.maparadar">
+    <name>MapaRadar</name>
+  </developer>
+  <description>
+    <p>Aplicativo desktop oficial para atualizar automaticamente a base de radares do seu GPS.</p>
+    <p>Compatível com iGO8 e NDrive, com atualização simplificada e seleção de tipos de alerta.</p>
+  </description>
+  <url type="homepage">https://maparadar.com/atualizador.html</url>
+  <launchable type="desktop-id">com.maparadar.atualizador.desktop</launchable>
+</component>
