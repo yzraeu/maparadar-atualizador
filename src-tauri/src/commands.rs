@@ -289,7 +289,13 @@ pub async fn update_device(
     let token = match ensure_access_token(&state).await {
         Ok(token) => token,
         Err(e) => {
-            state.logs.error(format!("Falha ao obter token para exportação: {}", e));
+            state.logs.error(format!(
+                "Falha ao obter token para exportação ({} ms | tipo={} | error={}): {}",
+                start.elapsed().as_millis(),
+                kind,
+                e.kind(),
+                e
+            ));
             return Err(e);
         }
     };
@@ -323,7 +329,14 @@ pub async fn update_device(
     let bytes = match state.api.export_updater(&token, export_type, &radar_types).await {
         Ok(bytes) => bytes,
         Err(e) => {
-            state.logs.error(format!("Falha ao baixar exportação: {}", e));
+            state.logs.error(format!(
+                "Falha ao baixar exportação ({} ms | endpoint=export/updater | tipo={} | radares=[{}] | error={}): {}",
+                start.elapsed().as_millis(),
+                export_type,
+                radar_types,
+                e.kind(),
+                e
+            ));
             return Err(e);
         }
     };
@@ -346,7 +359,16 @@ pub async fn update_device(
     let summary = match summary {
         Ok(summary) => summary,
         Err(e) => {
-            state.logs.error(format!("Falha ao gravar exportação no destino: {}", e));
+            state.logs.error(format!(
+                "Falha ao gravar exportação no destino ({} ms | tipo={} | destinos={} | pastas={} | bytes={} | error={}): {}",
+                start.elapsed().as_millis(),
+                kind,
+                destination_list,
+                folders.len(),
+                bytes.len(),
+                e.kind(),
+                e
+            ));
             return Err(e);
         }
     };
