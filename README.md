@@ -94,5 +94,15 @@ git tag v0.1.0 && git push origin v0.1.0
 
 ## License
 
-The MapaRadar radar data is licensed under CC BY-NC-ND 4.0. This app is the community tool
-that delivers that data to your GPS.
+This application (source code and binaries) is proprietary software &mdash; all rights
+reserved by MapaRadar. See [`LICENSE`](LICENSE) for the full terms.
+
+The MapaRadar radar database is licensed separately under
+[CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/).
+
+## Security
+
+If you discover a security vulnerability, please **do not** open a public issue. Instead,
+report it to [contato@maparadar.com](mailto:contato@maparadar.com) or via the
+[contact form](https://maparadar.com/#contato) on our site. We take security seriously
+and will respond as quickly as possible.

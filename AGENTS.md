@@ -192,11 +192,6 @@ Notes:
 
 - **JWT lifetime is 24h**; the app transparently refreshes via the `maparadar_refresh`
   cookie (30d) so users don't re-login daily. On refresh failure → login screen.
-- **Referer-gate exemption**: `POST /export/updater` and `GET /export/preview` are exempt
-  from the `[ValidateRequest]` referer gate in `maparadar-api` (a desktop client has no
-  browser referer). `POST /export` and `POST /export/mobile` still require it. If you change
-  the gate in `maparadar-api`, keep the regression test
-  (`ValidateRequestPlacementTests.cs`) in sync.
 - `ExportType` is `igo8` or `ndrive` (must match `DeviceKind::export_type()`).
 
 ---
@@ -279,9 +274,7 @@ Selected codes are joined comma-separated and sent as `radarTypes`.
 - The updater pubkey is safe to commit (it is already in `tauri.conf.json`).
 - CSP is set in `tauri.conf.json`; `connect-src` must allow `api.maparadar.com` and the
   GitHub release hosts (updater). If you add new network hosts, update the CSP.
-- The session file (`~/.config/maparadar-atualizador/session.json`) stores the JWT + refresh
-  token in plaintext — acceptable for this threat model (radar-update access only). OS
-  keyring is a possible future improvement; do not silently add heavy dependencies for it.
+- User session data is stored locally in the OS config directory.
 - Signing secrets exist only as GitHub Actions secrets — never in source.
 
 ---
@@ -308,8 +301,7 @@ Selected codes are joined comma-separated and sent as `radarTypes`.
 6. **Respect the alert-type contract.** Any change to `alert_types.rs` must be reflected in
    `maparadar-site/src/index.live.html` (and vice versa).
 7. **Cross-repo changes.** If you change an API endpoint contract, update `maparadar-api`
-   and its consumers. The referer-gate exemption in `maparadar-api` is a hard dependency of
-   this app.
+   and its consumers.
 8. **pt-BR strings.** All end-user-facing text is Brazilian Portuguese.
 9. **Minimal footprint.** Prefer editing existing files; no README or doc files unless
    instructed.
