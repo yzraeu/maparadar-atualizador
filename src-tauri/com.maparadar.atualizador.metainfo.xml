@@ -13,5 +13,5 @@
     <p>Compatível com iGO8 e NDrive, com atualização simplificada e seleção de tipos de alerta.</p>
   </description>
   <url type="homepage">https://maparadar.com/atualizador.html</url>
-  <launchable type="desktop-id">com.maparadar.atualizador.desktop</launchable>
+  <launchable type="desktop-id">Atualizador MapaRadar.desktop</launchable>
 </component>
