@@ -40,6 +40,14 @@ npx tauri icon public/app-icon.png
 
 # Release: tag, push, CI builds signed installers + latest.json
 git tag vX.Y.Z && git push origin vX.Y.Z
+
+# After the release workflow finishes, the GitHub release MUST be published
+# (not a draft): the self-updater downloads `latest.json` via
+# /releases/latest/download/latest.json, and GitHub's "latest" endpoint
+# 404s for draft releases. The workflow does NOT create drafts anymore
+# (releaseDraft was removed from release.yml). If a release ends up as a
+# draft for any reason, publish it manually:
+gh release edit vX.Y.Z --draft=false
 ```
 
 **Linux build prerequisites** (required for any `cargo check`/`build` of the Tauri app):
@@ -223,9 +231,19 @@ Selected codes are joined comma-separated and sent as `radarTypes`.
   The **private key** is `maparadar-atualizador.key`, **gitignored** — never commit it.
 - **CI secrets** (repo → Settings → Secrets): `TAURI_SIGNING_PRIVATE_KEY` (file content) and
   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+- **Updater artifacts**: `tauri.conf.json` → `bundle.createUpdaterArtifacts` **must be `true`**.
+  Without it the builds produce no `.sig` signature files, so `tauri-action` skips uploading
+  `latest.json` entirely and updates silently never appear. This bit us once (v0.2.0/v0.2.1 had
+  no `latest.json`). `tauri-action` merges per-platform entries into a single `latest.json`, so
+  the 3-OS matrix is fine as-is.
 - **macOS caveat**: auto-update requires a Developer ID–signed build. Until `APPLE_*`
   secrets are configured, macOS users install the DMG manually; the updater banner may show
   but install will fail there. The release body documents this.
+- **Draft releases break updates**: the updater hits `/releases/latest/download/latest.json`,
+  which GitHub serves only for **published** (non-draft) releases. A draft release returns
+  404 and the app silently shows no update. The workflow publishes releases automatically;
+  if a release is ever left as a draft, publish it with
+  `gh release edit vX.Y.Z --draft=false`.
 
 ---
 

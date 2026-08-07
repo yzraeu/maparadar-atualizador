@@ -79,6 +79,5 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'MapaRadar Atualizador ${{ github.ref_name }}'
           releaseBody: 'Instaladores e manifest latest.json para atualização automática. Nota: no macOS, a atualização automática requer assinatura Developer ID — instale manualmente.'
-          releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
