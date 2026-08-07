@@ -28,6 +28,7 @@ let timer: number | undefined
 let countRequest = 0
 let debounceTimer: number | undefined
 let scanInFlight = false
+let hadDevice: boolean | null = null
 const updateAvailable = ref(false)
 const updateBusy = ref(false)
 const updateHandle = shallowRef<Update | null>(null)
@@ -85,7 +86,13 @@ async function refreshDevices() {
   if (scanInFlight) return
   scanInFlight = true
   try {
-    devices.value = await detectDevice()
+    const detected = await detectDevice()
+    const hasDevice = detected.length > 0
+    if (hadDevice !== null && hadDevice !== hasDevice) {
+      showToast(hasDevice ? 'GPS Detectado' : 'GPS Desconectado', hasDevice)
+    }
+    hadDevice = hasDevice
+    devices.value = detected
   } catch {
     // transient detect failure: keep previous device state, don't flip UI
   } finally {
@@ -174,7 +181,7 @@ watch(radarTypes, debouncedRefreshCount)
           <svg v-if="theme === 'dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
           <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         </button>
-        <button class="link" @click="openUrl('https://maparadar.com/atualizador/')">Sobre</button>
+        <button class="link" @click="openUrl('https://maparadar.com/atualizador.html')">Sobre</button>
         <button class="link" @click="doLogout">Sair</button>
       </nav>
     </header>
@@ -306,8 +313,8 @@ h2 { margin: 0 0 12px; font-size: 1rem; }
   cursor: pointer;
   z-index: 100;
 }
-.toast-ok { color: var(--ok); background: var(--ok-tint); box-shadow: 0 4px 20px rgba(22, 163, 74, 0.15); }
-.toast-err { color: var(--err); background: var(--err-tint); box-shadow: 0 4px 20px rgba(220, 38, 38, 0.15); }
+.toast-ok { color: var(--ok); background: var(--card); border: 1px solid var(--ok); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); }
+.toast-err { color: var(--err); background: var(--card); border: 1px solid var(--err); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); }
 
 .toast-enter-active { transition: all 0.3s ease-out; }
 .toast-leave-active { transition: all 0.2s ease-in; }
