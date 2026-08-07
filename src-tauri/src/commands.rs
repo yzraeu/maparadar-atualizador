@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
-use tauri::State;
+use tauri::{Emitter, State};
 
 use crate::alert_types::{self, AlertType};
 use crate::api::{now_unix, AuthResponse};
@@ -42,6 +42,13 @@ pub struct AppInfo {
     pub platform: String,
     pub arch: String,
     pub tauri_version: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProgress {
+    pub stage: String,
+    pub percent: u32,
 }
 
 fn persist_session(state: &AppState, username: String, auth: &AuthResponse) -> Result<(), AppError> {
@@ -224,19 +231,24 @@ fn parse_kind(kind: &str) -> Result<DeviceKind, AppError> {
     }
 }
 
-fn aggregate_writes<F>(folders: &[PathBuf], data: &[u8], write_fn: F) -> Result<WriteSummary, AppError>
+fn aggregate_writes<F, P>(folders: &[PathBuf], data: &[u8], write_fn: F, on_progress: P) -> Result<WriteSummary, AppError>
 where
     F: Fn(&Path, &[u8]) -> Result<WriteSummary, AppError>,
+    P: Fn(u32),
 {
+    let total = folders.len() as u32;
     let mut acc = WriteSummary::default();
     let mut failed = Vec::new();
-    for folder in folders {
+    for (i, folder) in folders.iter().enumerate() {
         match write_fn(folder, data) {
             Ok(s) => {
                 acc.files_written.extend(s.files_written);
                 acc.files_deleted.extend(s.files_deleted);
             }
             Err(e) => failed.push((folder.clone(), e)),
+        }
+        if total > 0 {
+            on_progress(40 + ((i as u32 + 1) * 60 / total));
         }
     }
     if !failed.is_empty() {
@@ -256,12 +268,18 @@ where
 
 #[tauri::command]
 pub async fn update_device(
+    app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     kind: String,
     radar_types: String,
 ) -> Result<UpdateSummary, AppError> {
     let start = Instant::now();
     let kind_enum = parse_kind(&kind)?;
+
+    let _ = app_handle.emit("update-progress", UpdateProgress {
+        stage: "download".into(),
+        percent: 5,
+    });
 
     state.logs.info(format!(
         "Iniciando exportação para {} com tipos [{}]",
@@ -275,6 +293,11 @@ pub async fn update_device(
             return Err(e);
         }
     };
+
+    let _ = app_handle.emit("update-progress", UpdateProgress {
+        stage: "download".into(),
+        percent: 15,
+    });
 
     let mut folders = Vec::new();
     for d in device::detect() {
@@ -305,9 +328,19 @@ pub async fn update_device(
         }
     };
 
+    let _ = app_handle.emit("update-progress", UpdateProgress {
+        stage: "write".into(),
+        percent: 40,
+    });
+
+    let ah = app_handle.clone();
     let summary = match kind_enum {
-        DeviceKind::Igo8 => aggregate_writes(&folders, &bytes, writer::write_igo8),
-        DeviceKind::NDrive => aggregate_writes(&folders, &bytes, writer::write_ndrive),
+        DeviceKind::Igo8 => aggregate_writes(&folders, &bytes, writer::write_igo8, move |p| {
+            let _ = ah.emit("update-progress", UpdateProgress { stage: "write".into(), percent: p });
+        }),
+        DeviceKind::NDrive => aggregate_writes(&folders, &bytes, writer::write_ndrive, move |p| {
+            let _ = ah.emit("update-progress", UpdateProgress { stage: "write".into(), percent: p });
+        }),
     };
 
     let summary = match summary {
@@ -367,7 +400,7 @@ mod tests {
                 files_written: vec![target.join("out.txt")],
                 files_deleted: vec![],
             })
-        })
+        }, |_| {})
         .unwrap();
         assert_eq!(s.files_written.len(), 2);
     }
@@ -387,7 +420,7 @@ mod tests {
                     files_deleted: vec![],
                 })
             }
-        })
+        }, |_| {})
         .unwrap_err();
         assert!(matches!(err, AppError::Io(_)));
         assert!(err.to_string().contains("1 de 2"));
@@ -402,7 +435,7 @@ mod tests {
         let folders = vec![a, b];
         let err = aggregate_writes(&folders, b"DATA", |_, _| {
             Err(AppError::Io("dead".into()))
-        })
+        }, |_| {})
         .unwrap_err();
         assert!(matches!(err, AppError::Io(_)));
         assert!(err.to_string().contains("0 de 2"));

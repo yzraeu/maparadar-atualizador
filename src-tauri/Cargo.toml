@@ -1,6 +1,6 @@
 [package]
 name = "maparadar-atualizador"
-version = "0.2.7"
+version = "0.2.8"
 description = "Atualizador MapaRadar - atualiza radares no seu GPS"
 edition = "2021"
 

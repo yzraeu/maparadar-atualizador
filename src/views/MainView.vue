@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { check, type Update } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import AboutModal from '../components/AboutModal.vue'
 import { theme, toggleTheme } from '../theme'
 import {
@@ -16,7 +17,7 @@ import {
   toAppError,
   updateDevice,
 } from '../api'
-import type { AlertType, AppInfo, DeviceInfo, LogEntry, UpdateSummary } from '../types'
+import type { AlertType, AppInfo, DeviceInfo, LogEntry, UpdateProgress } from '../types'
 
 const emit = defineEmits<{ (e: 'logout'): void }>()
 
@@ -27,6 +28,8 @@ const count = ref<number | null>(null)
 const busy = ref(false)
 const toast = ref<{ message: string; ok: boolean; visible: boolean }>({ message: '', ok: true, visible: false })
 let toastTimer: number | undefined
+const exportToast = ref<{ message: string; ok: boolean; visible: boolean }>({ message: '', ok: true, visible: false })
+let exportToastTimer: number | undefined
 let timer: number | undefined
 let countRequest = 0
 let debounceTimer: number | undefined
@@ -40,14 +43,10 @@ const showAbout = ref(false)
 const appInfo = ref<AppInfo | null>(null)
 const logs = ref<LogEntry[]>([])
 const loadingLogs = ref(false)
+const updateProgress = ref<UpdateProgress | null>(null)
+let unlistenProgress: UnlistenFn | undefined
 
 const currentDevice = computed(() => devices.value[0])
-const deviceLabel = computed(() => {
-  const d = currentDevice.value
-  if (!d) return ''
-  const parts = d.drive.split(/[/\\]+/).filter(Boolean)
-  return parts[parts.length - 1] || d.drive
-})
 const radarTypes = computed(() => radarTypesString([...selected.value]))
 const hasSelection = computed(() => radarTypes.value !== null)
 
@@ -64,7 +63,21 @@ function dismissToast() {
   toast.value.visible = false
 }
 
+function showExportToast(msg: string, ok: boolean) {
+  window.clearTimeout(exportToastTimer)
+  exportToast.value = { message: msg, ok, visible: true }
+  exportToastTimer = window.setTimeout(() => {
+    exportToast.value.visible = false
+  }, 5000)
+}
+
+function dismissExportToast() {
+  window.clearTimeout(exportToastTimer)
+  exportToast.value.visible = false
+}
+
 function toggle(code: number) {
+  if (busy.value) return
   const next = new Set(selected.value)
   if (next.has(code)) next.delete(code)
   else next.add(code)
@@ -111,10 +124,11 @@ async function refreshDevices() {
 async function doUpdate() {
   if (!currentDevice.value || radarTypes.value === null || busy.value) return
   busy.value = true
-  dismissToast()
+  updateProgress.value = null
+  dismissExportToast()
   try {
-    const s: UpdateSummary = await updateDevice(currentDevice.value.kind, radarTypes.value)
-    showToast(`Arquivo atualizado: ${s.filesWritten.join(', ')}`, true)
+    await updateDevice(currentDevice.value.kind, radarTypes.value)
+    showExportToast('Dispositivo atualizado', true)
   } catch (e) {
     const err = toAppError(e)
     if (err.kind === 'unauthorized') {
@@ -122,9 +136,10 @@ async function doUpdate() {
       emit('logout')
       return
     }
-    showToast(err.message, false)
+    showExportToast(err.message, false)
   } finally {
     busy.value = false
+    updateProgress.value = null
   }
 }
 
@@ -202,12 +217,18 @@ onMounted(async () => {
   refreshDevices()
   timer = window.setInterval(refreshDevices, 2000)
   checkForUpdate()
+  const unlisten = await listen<UpdateProgress>('update-progress', (event) => {
+    updateProgress.value = event.payload
+  })
+  unlistenProgress = unlisten
 })
 
 onUnmounted(() => {
   window.clearInterval(timer)
   window.clearTimeout(debounceTimer)
   window.clearTimeout(toastTimer)
+  window.clearTimeout(exportToastTimer)
+  if (unlistenProgress) unlistenProgress()
 })
 
 watch(radarTypes, debouncedRefreshCount)
@@ -228,10 +249,9 @@ watch(radarTypes, debouncedRefreshCount)
       </nav>
     </header>
 
-    <section class="card device">
+    <section class="card device-card">
       <template v-if="currentDevice">
         <img :src="`/${currentDevice.kind}.svg`" :alt="currentDevice.display" class="device-logo" />
-        <div class="device-drive">{{ deviceLabel }}</div>
       </template>
       <div v-else class="device-waiting">
         <h2 class="device-waiting-title">Aguardando GPS...</h2>
@@ -246,9 +266,9 @@ watch(radarTypes, debouncedRefreshCount)
           v-for="t in alertTypes"
           :key="t.code"
           class="pill"
-          :class="{ active: selected.has(t.code) }"
+          :class="{ active: selected.has(t.code), inactive: busy }"
         >
-          <input type="checkbox" :checked="selected.has(t.code)" @change="toggle(t.code)" />
+          <input type="checkbox" :checked="selected.has(t.code)" :disabled="busy" @change="toggle(t.code)" />
           <img :src="`/icons/${t.icon}.svg`" :alt="t.label" />
           <span>{{ t.label }}</span>
         </label>
@@ -265,11 +285,26 @@ watch(radarTypes, debouncedRefreshCount)
       >
         {{ busy ? 'Atualizando…' : 'Atualizar dispositivo' }}
       </button>
+      <div v-if="updateProgress" class="progress-bar">
+        <div class="progress-label">
+          {{ updateProgress.stage === 'download' ? 'Baixando…' : 'Gravando no dispositivo…' }}
+          <span>{{ updateProgress.percent }}%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" :style="{ width: updateProgress.percent + '%' }"></div>
+        </div>
+      </div>
     </section>
 
     <Transition name="toast">
       <div v-if="toast.visible" class="toast" :class="toast.ok ? 'toast-ok' : 'toast-err'" @click="dismissToast">
         {{ toast.message }}
+      </div>
+    </Transition>
+
+    <Transition name="export-toast">
+      <div v-if="exportToast.visible" class="export-toast" :class="exportToast.ok ? 'toast-ok' : 'toast-err'" @click="dismissExportToast">
+        {{ exportToast.message }}
       </div>
     </Transition>
 
@@ -300,17 +335,17 @@ watch(radarTypes, debouncedRefreshCount)
 </template>
 
 <style scoped>
-.main { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 16px; }
-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-.logo-sm { width: 40px; height: 40px; }
+.main { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 10px; }
+header { display: flex; align-items: center; justify-content: space-between; }
+.logo-sm { width: 48px; height: 48px; }
 nav { display: flex; gap: 8px; align-items: center; }
 .theme-toggle { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; padding: 4px; }
 .theme-toggle svg { width: 20px; height: 20px; }
 .link { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; }
 .link:hover { color: var(--brand); }
 h2 { margin: 0 0 12px; font-size: 1rem; }
-.device-drive { color: var(--muted); font-size: 0.85rem; text-align: center; }
-.device-logo { width: 96px; height: 96px; object-fit: contain; display: block; margin: 0 auto 8px; }
+.device-card { padding: 18px; display: flex; align-items: center; justify-content: center; }
+.device-logo { width: 96px; height: 96px; object-fit: contain; display: block; margin: 0 auto; }
 .device-waiting {
   display: flex;
   flex-direction: column;
@@ -342,6 +377,7 @@ h2 { margin: 0 0 12px; font-size: 1rem; }
   user-select: none;
 }
 .pill.active { border-color: var(--brand); background: var(--brand-tint); }
+.pill.inactive { opacity: 0.5; cursor: not-allowed; }
 .pill img { width: 34px; height: 34px; }
 .pill input {
   position: absolute; opacity: 0; width: 1px; height: 1px; margin: -1px;
@@ -427,6 +463,27 @@ h2 { margin: 0 0 12px; font-size: 1rem; }
 .toast-enter-from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
 .toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(-16px); }
 
+.export-toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 420px;
+  width: calc(100% - 32px);
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  text-align: center;
+  line-height: 1.5;
+  cursor: pointer;
+  z-index: 100;
+}
+
+.export-toast-enter-active { transition: all 0.3s ease-out; }
+.export-toast-leave-active { transition: all 0.2s ease-in; }
+.export-toast-enter-from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+.export-toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(16px); }
+
 .update-modal-enter-active,
 .update-modal-leave-active {
   transition: opacity 0.2s ease;
@@ -435,5 +492,33 @@ h2 { margin: 0 0 12px; font-size: 1rem; }
 .update-modal-enter-from,
 .update-modal-leave-to {
   opacity: 0;
+}
+
+.progress-bar {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--brand);
+  transition: width 0.25s ease;
 }
 </style>

@@ -39,3 +39,8 @@ export interface AppErrorPayload {
   kind: string
   message: string
 }
+
+export interface UpdateProgress {
+  stage: 'download' | 'write' | string
+  percent: number
+}
