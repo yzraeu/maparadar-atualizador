@@ -3,17 +3,20 @@ import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { check, type Update } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
+import AboutModal from '../components/AboutModal.vue'
 import { theme, toggleTheme } from '../theme'
 import {
   detectDevice,
+  getAppInfo,
   getAlertTypes,
+  getLogs,
   logout as apiLogout,
   previewCount,
   radarTypesString,
   toAppError,
   updateDevice,
 } from '../api'
-import type { AlertType, DeviceInfo, UpdateSummary } from '../types'
+import type { AlertType, AppInfo, DeviceInfo, LogEntry, UpdateSummary } from '../types'
 
 const emit = defineEmits<{ (e: 'logout'): void }>()
 
@@ -32,6 +35,10 @@ let hadDevice: boolean | null = null
 const updateAvailable = ref(false)
 const updateBusy = ref(false)
 const updateHandle = shallowRef<Update | null>(null)
+const showAbout = ref(false)
+const appInfo = ref<AppInfo | null>(null)
+const logs = ref<LogEntry[]>([])
+const loadingLogs = ref(false)
 
 const currentDevice = computed(() => devices.value[0])
 const deviceLabel = computed(() => {
@@ -146,6 +153,31 @@ async function installUpdate() {
   }
 }
 
+async function refreshLogs() {
+  loadingLogs.value = true
+  try {
+    logs.value = await getLogs()
+  } catch (e) {
+    showToast(toAppError(e).message, false)
+  } finally {
+    loadingLogs.value = false
+  }
+}
+
+async function openAbout() {
+  try {
+    appInfo.value = await getAppInfo()
+  } catch (e) {
+    showToast(toAppError(e).message, false)
+  }
+  await refreshLogs()
+  showAbout.value = true
+}
+
+function openHelp() {
+  openUrl('https://maparadar.com/atualizador.html')
+}
+
 function doLogout() {
   apiLogout()
   emit('logout')
@@ -181,7 +213,8 @@ watch(radarTypes, debouncedRefreshCount)
           <svg v-if="theme === 'dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
           <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         </button>
-        <button class="link" @click="openUrl('https://maparadar.com/atualizador.html')">Sobre</button>
+        <button class="link" @click="openAbout">Sobre</button>
+        <button class="link" @click="openHelp">Ajuda</button>
         <button class="link" @click="doLogout">Sair</button>
       </nav>
     </header>
@@ -237,6 +270,15 @@ watch(radarTypes, debouncedRefreshCount)
         {{ toast.message }}
       </div>
     </Transition>
+
+    <AboutModal
+      :visible="showAbout"
+      :app-info="appInfo"
+      :logs="logs"
+      :loading-logs="loadingLogs"
+      @close="showAbout = false"
+      @refresh-logs="refreshLogs"
+    />
   </div>
 </template>
 

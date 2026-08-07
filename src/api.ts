@@ -1,7 +1,11 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { AlertType, AppErrorPayload, DeviceInfo, SessionInfo, UpdateSummary } from './types'
+import type { AlertType, AppErrorPayload, AppInfo, DeviceInfo, LogEntry, SessionInfo, UpdateSummary } from './types'
 
 export const getAlertTypes = () => invoke<AlertType[]>('get_alert_types')
+
+export const getAppInfo = () => invoke<AppInfo>('get_app_info')
+
+export const getLogs = () => invoke<LogEntry[]>('get_logs')
 
 export const login = (username: string, password: string) =>
   invoke<SessionInfo>('login', { username, password })

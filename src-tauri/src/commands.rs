@@ -1,11 +1,13 @@
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 use tauri::State;
 
 use crate::alert_types::{self, AlertType};
 use crate::api::{now_unix, AuthResponse};
 use crate::device::{self, DeviceKind};
 use crate::error::AppError;
+use crate::log::LogEntry;
 use crate::session;
 use crate::writer::{self, WriteSummary};
 use crate::AppState;
@@ -32,6 +34,16 @@ pub struct UpdateSummary {
     pub files_deleted: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppInfo {
+    pub name: String,
+    pub version: String,
+    pub platform: String,
+    pub arch: String,
+    pub tauri_version: String,
+}
+
 fn persist_session(state: &AppState, username: String, auth: &AuthResponse) -> Result<(), AppError> {
     let s = session::Session {
         username: username.clone(),
@@ -48,14 +60,54 @@ pub fn get_alert_types() -> Vec<AlertType> {
 }
 
 #[tauri::command]
+pub fn get_app_info() -> AppInfo {
+    AppInfo {
+        name: "Atualizador MapaRadar".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        platform: std::env::consts::OS.to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+        tauri_version: tauri::VERSION.to_string(),
+    }
+}
+
+#[tauri::command]
+pub fn get_logs(state: State<'_, AppState>) -> Vec<LogEntry> {
+    state.logs.list()
+}
+
+#[tauri::command]
 pub async fn login(
     state: State<'_, AppState>,
     username: String,
     password: String,
 ) -> Result<SessionInfo, AppError> {
-    let auth = state.api.login(&username, &password).await?;
+    let start = Instant::now();
+    state.logs.info(format!("Tentativa de login para usuário {}", username));
+
+    let auth = match state.api.login(&username, &password).await {
+        Ok(auth) => auth,
+        Err(e) => {
+            state.logs.error(format!(
+                "Falha no login para usuário {} após {} ms: {}",
+                username,
+                start.elapsed().as_millis(),
+                e
+            ));
+            return Err(e);
+        }
+    };
+
     let now = now_unix();
-    persist_session(&state, username.clone(), &auth)?;
+    if let Err(e) = persist_session(&state, username.clone(), &auth) {
+        state.logs.error(format!("Falha ao persistir sessão para {}: {}", username, e));
+        return Err(e);
+    }
+
+    state.logs.info(format!(
+        "Login concluído para usuário {} em {} ms",
+        username,
+        start.elapsed().as_millis()
+    ));
     Ok(SessionInfo {
         username,
         expires_at_unix: now + auth.expires_in,
@@ -64,6 +116,11 @@ pub async fn login(
 
 #[tauri::command]
 pub fn logout(state: State<'_, AppState>) {
+    if let Ok(Some(s)) = session::load(&state.config_dir) {
+        state.logs.info(format!("Logout solicitado para usuário {}", s.username));
+    } else {
+        state.logs.info("Logout solicitado".to_string());
+    }
     session::clear(&state.config_dir);
 }
 
@@ -72,9 +129,11 @@ pub async fn session_status(
     state: State<'_, AppState>,
 ) -> Result<Option<SessionInfo>, AppError> {
     let Some(s) = session::load(&state.config_dir).ok().flatten() else {
+        state.logs.warn("Sessão inexistente ao verificar status".to_string());
         return Ok(None);
     };
     if s.is_valid(now_unix()) {
+        state.logs.info(format!("Sessão ativa para usuário {}", s.username));
         return Ok(Some(SessionInfo {
             username: s.username,
             expires_at_unix: s.expires_at_unix,
@@ -86,17 +145,22 @@ pub async fn session_status(
             let username = s.username.clone();
             let now_after_refresh = now_unix();
             if persist_session(&state, username.clone(), &auth).is_ok() {
+                state.logs.info(format!("Sessão renovada para usuário {}", username));
                 Ok(Some(SessionInfo {
                     username,
                     expires_at_unix: now_after_refresh + auth.expires_in,
                 }))
             } else {
+                state.logs.error(format!("Falha ao salvar sessão renovada para usuário {}", username));
                 Ok(None)
             }
         }
         Err(e) => {
             if matches!(e, AppError::Unauthorized) {
                 session::clear(&state.config_dir);
+                state.logs.warn("Refresh inválido; sessão limpa".to_string());
+            } else {
+                state.logs.error(format!("Erro ao renovar sessão: {}", e));
             }
             Ok(None)
         }
@@ -122,7 +186,23 @@ pub async fn preview_count(
     state: State<'_, AppState>,
     radar_types: String,
 ) -> Result<u32, AppError> {
-    state.api.preview_count(&radar_types).await
+    let start = Instant::now();
+    let result = state.api.preview_count(&radar_types).await;
+    match &result {
+        Ok(count) => state.logs.info(format!(
+            "Preview concluído: {} pontos para tipos [{}] em {} ms",
+            count,
+            radar_types,
+            start.elapsed().as_millis()
+        )),
+        Err(e) => state.logs.error(format!(
+            "Falha no preview para tipos [{}] após {} ms: {}",
+            radar_types,
+            start.elapsed().as_millis(),
+            e
+        )),
+    }
+    result
 }
 
 async fn ensure_access_token(state: &AppState) -> Result<String, AppError> {
@@ -180,9 +260,21 @@ pub async fn update_device(
     kind: String,
     radar_types: String,
 ) -> Result<UpdateSummary, AppError> {
+    let start = Instant::now();
     let kind_enum = parse_kind(&kind)?;
 
-    let token = ensure_access_token(&state).await?;
+    state.logs.info(format!(
+        "Iniciando exportação para {} com tipos [{}]",
+        kind, radar_types
+    ));
+
+    let token = match ensure_access_token(&state).await {
+        Ok(token) => token,
+        Err(e) => {
+            state.logs.error(format!("Falha ao obter token para exportação: {}", e));
+            return Err(e);
+        }
+    };
 
     let mut folders = Vec::new();
     for d in device::detect() {
@@ -191,16 +283,48 @@ pub async fn update_device(
         }
     }
     if folders.is_empty() {
+        state.logs.warn(format!("Exportação cancelada: destino {} não encontrado", kind));
         return Err(AppError::DeviceNotFound);
     }
 
+    let destination_list = folders
+        .iter()
+        .map(|p| p.to_string_lossy().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    state
+        .logs
+        .info(format!("Destino(s) da exportação: {}", destination_list));
+
     let export_type = kind_enum.export_type();
-    let bytes = state.api.export_updater(&token, export_type, &radar_types).await?;
+    let bytes = match state.api.export_updater(&token, export_type, &radar_types).await {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            state.logs.error(format!("Falha ao baixar exportação: {}", e));
+            return Err(e);
+        }
+    };
 
     let summary = match kind_enum {
-        DeviceKind::Igo8 => aggregate_writes(&folders, &bytes, writer::write_igo8)?,
-        DeviceKind::NDrive => aggregate_writes(&folders, &bytes, writer::write_ndrive)?,
+        DeviceKind::Igo8 => aggregate_writes(&folders, &bytes, writer::write_igo8),
+        DeviceKind::NDrive => aggregate_writes(&folders, &bytes, writer::write_ndrive),
     };
+
+    let summary = match summary {
+        Ok(summary) => summary,
+        Err(e) => {
+            state.logs.error(format!("Falha ao gravar exportação no destino: {}", e));
+            return Err(e);
+        }
+    };
+
+    state.logs.info(format!(
+        "Exportação concluída para {} em {} ms ({} arquivos gravados, {} removidos)",
+        kind,
+        start.elapsed().as_millis(),
+        summary.files_written.len(),
+        summary.files_deleted.len()
+    ));
 
     Ok(UpdateSummary {
         files_written: summary.files_written.iter().map(|p| p.to_string_lossy().to_string()).collect(),

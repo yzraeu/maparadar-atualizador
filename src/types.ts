@@ -21,6 +21,20 @@ export interface UpdateSummary {
   filesDeleted: string[]
 }
 
+export interface AppInfo {
+  name: string
+  version: string
+  platform: string
+  arch: string
+  tauriVersion: string
+}
+
+export interface LogEntry {
+  timestampUnixMs: number
+  level: 'info' | 'warn' | 'error' | string
+  message: string
+}
+
 export interface AppErrorPayload {
   kind: string
   message: string
