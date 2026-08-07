@@ -78,6 +78,6 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'MapaRadar Atualizador ${{ github.ref_name }}'
-          releaseBody: 'Instaladores e manifest latest.json para atualização automática. Nota: no macOS, a atualização automática requer assinatura Developer ID — instale manualmente.'
+          releaseBody: 'Instaladores e manifest latest.json para atualização automática. Windows: pode aparecer "O Windows protegeu o seu PC" (SmartScreen) porque o instalador ainda não é assinado digitalmente — clique em Mais informações e depois em Executar assim mesmo. O app é seguro e de código aberto. macOS: a atualização automática requer assinatura Developer ID — instale manualmente.'
           prerelease: false
           args: ${{ matrix.args }}

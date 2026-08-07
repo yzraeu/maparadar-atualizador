@@ -239,6 +239,12 @@ Selected codes are joined comma-separated and sent as `radarTypes`.
 - **macOS caveat**: auto-update requires a Developer ID–signed build. Until `APPLE_*`
   secrets are configured, macOS users install the DMG manually; the updater banner may show
   but install will fail there. The release body documents this.
+- **Windows SmartScreen caveat**: installers are currently **not Authenticode-signed**.
+  Users may see "O Windows protegeu o seu PC" / unknown publisher on first install.
+  Workaround: **Mais informacoes -> Executar assim mesmo**. This is expected while we
+  have updater signing only (`TAURI_SIGNING_PRIVATE_KEY`) and no Windows code-signing cert.
+  To remove the warning in future releases, we need OV/EV code signing (preferably cloud
+  signing so GitHub Actions can sign during CI).
 - **Draft releases break updates**: the updater hits `/releases/latest/download/latest.json`,
   which GitHub serves only for **published** (non-draft) releases. A draft release returns
   404 and the app silently shows no update. The workflow publishes releases automatically;
