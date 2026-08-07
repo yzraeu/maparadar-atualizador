@@ -35,6 +35,7 @@ let hadDevice: boolean | null = null
 const updateAvailable = ref(false)
 const updateBusy = ref(false)
 const updateHandle = shallowRef<Update | null>(null)
+const showUpdateModal = ref(false)
 const showAbout = ref(false)
 const appInfo = ref<AppInfo | null>(null)
 const logs = ref<LogEntry[]>([])
@@ -132,9 +133,11 @@ async function checkForUpdate() {
     const update = await check()
     updateHandle.value = update
     updateAvailable.value = !!update
+    showUpdateModal.value = !!update
   } catch {
     updateHandle.value = null
     updateAvailable.value = false
+    showUpdateModal.value = false
   }
 }
 
@@ -147,10 +150,16 @@ async function installUpdate() {
     }
   } catch (e) {
     updateHandle.value = null
+    updateAvailable.value = false
+    showUpdateModal.value = false
     showToast(toAppError(e).message, false)
   } finally {
     updateBusy.value = false
   }
+}
+
+function dismissUpdateModal() {
+  showUpdateModal.value = false
 }
 
 async function refreshLogs() {
@@ -219,13 +228,6 @@ watch(radarTypes, debouncedRefreshCount)
       </nav>
     </header>
 
-    <section v-if="updateAvailable" class="card update-banner">
-      <span>Nova versão disponível</span>
-      <button class="primary small" :disabled="updateBusy || busy" @click="installUpdate">
-        {{ updateBusy ? 'Atualizando…' : 'Atualizar' }}
-      </button>
-    </section>
-
     <section class="card device">
       <template v-if="currentDevice">
         <img :src="`/${currentDevice.kind}.svg`" :alt="currentDevice.display" class="device-logo" />
@@ -279,6 +281,21 @@ watch(radarTypes, debouncedRefreshCount)
       @close="showAbout = false"
       @refresh-logs="refreshLogs"
     />
+
+    <Transition name="update-modal">
+      <div v-if="showUpdateModal && updateAvailable" class="update-modal-backdrop">
+        <section class="update-modal" role="dialog" aria-modal="true" aria-label="Atualização disponível">
+          <h2>Nova versão disponível</h2>
+          <p>Uma nova versão do Atualizador MapaRadar está pronta para instalar.</p>
+          <div class="update-modal-actions">
+            <button class="secondary" :disabled="updateBusy" @click="dismissUpdateModal">Depois</button>
+            <button class="primary small" :disabled="updateBusy || busy" @click="installUpdate">
+              {{ updateBusy ? 'Atualizando…' : 'Atualizar agora' }}
+            </button>
+          </div>
+        </section>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -337,9 +354,56 @@ h2 { margin: 0 0 12px; font-size: 1rem; }
   border: none; border-radius: 8px; font-size: 1.05rem; font-weight: 600; cursor: pointer;
 }
 .primary:disabled { opacity: 0.6; cursor: not-allowed; }
-.update-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.update-banner span { font-size: 0.95rem; }
 .small { width: auto; padding: 8px 14px; font-size: 0.9rem; }
+.secondary {
+  width: auto;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.update-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.52);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 170;
+}
+.update-modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 36px var(--shadow);
+  padding: 18px;
+}
+.update-modal h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.update-modal p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.update-modal-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .toast {
   position: fixed;
   top: 16px;
@@ -362,4 +426,14 @@ h2 { margin: 0 0 12px; font-size: 1rem; }
 .toast-leave-active { transition: all 0.2s ease-in; }
 .toast-enter-from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
 .toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(-16px); }
+
+.update-modal-enter-active,
+.update-modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.update-modal-enter-from,
+.update-modal-leave-to {
+  opacity: 0;
+}
 </style>

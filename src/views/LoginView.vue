@@ -57,8 +57,8 @@ function openHelp() {
 </script>
 
 <template>
-  <div>
-    <div class="card">
+  <div class="login-layout">
+    <div class="card login-card">
       <img src="/logo.svg" alt="MapaRadar" class="logo" />
       <h1>Atualizador MapaRadar</h1>
       <p class="subtitle">Atualize os radares no seu GPS (iGO8 ou NDrive)</p>
@@ -72,15 +72,16 @@ function openHelp() {
           <input v-model="password" type="password" autocomplete="current-password" required />
         </label>
         <p v-if="error" role="alert" class="error">{{ error }}</p>
-        <button type="submit" :disabled="busy || !username || !password">
+        <button type="submit" class="submit-btn" :disabled="busy || !username || !password">
           {{ busy ? 'Entrando…' : 'Entrar' }}
         </button>
       </form>
-      <div class="meta-links">
-        <button type="button" class="link" @click="openAbout">Sobre</button>
-        <span aria-hidden="true">·</span>
-        <button type="button" class="link" @click="openHelp">Ajuda</button>
-      </div>
+    </div>
+
+    <div class="meta-links">
+      <button type="button" class="link" @click="openAbout">Sobre</button>
+      <span aria-hidden="true">·</span>
+      <button type="button" class="link" @click="openHelp">Ajuda</button>
     </div>
 
     <AboutModal
@@ -95,17 +96,26 @@ function openHelp() {
 </template>
 
 <style scoped>
-.logo { width: 96px; height: 96px; display: block; margin: 0 auto 8px; }
-h1 { text-align: center; font-size: 1.35rem; margin: 0 0 4px; }
-.subtitle { text-align: center; color: var(--muted); margin: 0 0 20px; font-size: 0.9rem; }
-form { display: flex; flex-direction: column; gap: 14px; }
+.login-layout {
+  width: 100%;
+  max-width: 460px;
+}
+
+.login-card {
+  padding: 32px;
+}
+
+.logo { width: 136px; height: 136px; display: block; margin: 0 auto 10px; }
+h1 { text-align: center; font-size: 1.45rem; margin: 0 0 8px; }
+.subtitle { text-align: center; color: var(--muted); margin: 0 auto 24px; font-size: 0.92rem; line-height: 1.4; max-width: 300px; }
+form { display: flex; flex-direction: column; gap: 16px; }
 label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--muted); }
-input { padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; color: var(--text); background: var(--card); transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
-button { padding: 12px; background: var(--brand); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
-button:disabled { opacity: 0.6; cursor: not-allowed; }
+input { padding: 11px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; color: var(--text); background: var(--card); transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
+.submit-btn { margin-top: 6px; padding: 12px; background: var(--brand); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+.submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .error { color: var(--err); font-size: 0.85rem; margin: 0; }
 .meta-links {
-  margin-top: 12px;
+  margin-top: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
