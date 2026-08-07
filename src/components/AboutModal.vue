@@ -60,25 +60,24 @@ function onBackdropClick(event: MouseEvent) {
 
         <section class="block">
           <h3>Licenças</h3>
-          <p><strong>Aplicativo:</strong> Proprietário (MapaRadar)</p>
-          <p><strong>Base de radares:</strong> CC BY-NC-ND 4.0</p>
-          <p class="license-title"><strong>Terceiros (Frontend):</strong></p>
-          <ul class="license-list">
-            <li>Vue 3 - MIT</li>
-            <li>@tauri-apps/api - Apache-2.0 / MIT</li>
-            <li>@tauri-apps/plugin-opener - MIT / Apache-2.0</li>
-            <li>@tauri-apps/plugin-process - MIT / Apache-2.0</li>
-            <li>@tauri-apps/plugin-updater - MIT / Apache-2.0</li>
-          </ul>
-          <p class="license-title"><strong>Terceiros (Backend):</strong></p>
-          <ul class="license-list">
-            <li>tauri - Apache-2.0 / MIT</li>
-            <li>reqwest - MIT / Apache-2.0</li>
-            <li>serde e serde_json - MIT / Apache-2.0</li>
-            <li>thiserror - MIT / Apache-2.0</li>
-            <li>sysinfo - MIT</li>
-            <li>dirs - MIT / Apache-2.0</li>
-          </ul>
+          <p class="license-own"><strong>Aplicativo:</strong> Proprietário (MapaRadar)</p>
+          <p class="license-own"><strong>Base de radares:</strong> CC BY-NC-ND 4.0</p>
+          <p class="license-title">Terceiros:</p>
+          <div class="license-scroll">
+            <ul class="license-list">
+              <li>Vue 3 - MIT</li>
+              <li>@tauri-apps/api - Apache-2.0 / MIT</li>
+              <li>@tauri-apps/plugin-opener - MIT / Apache-2.0</li>
+              <li>@tauri-apps/plugin-process - MIT / Apache-2.0</li>
+              <li>@tauri-apps/plugin-updater - MIT / Apache-2.0</li>
+              <li>tauri - Apache-2.0 / MIT</li>
+              <li>reqwest - MIT / Apache-2.0</li>
+              <li>serde e serde_json - MIT / Apache-2.0</li>
+              <li>thiserror - MIT / Apache-2.0</li>
+              <li>sysinfo - MIT</li>
+              <li>dirs - MIT / Apache-2.0</li>
+            </ul>
+          </div>
         </section>
 
         <section class="block logs">
@@ -176,19 +175,32 @@ p {
   font-size: 0.9rem;
 }
 
-.license-title {
-  margin-top: 8px;
+.license-own {
+  margin-bottom: 4px;
 }
 
-.license-list {
-  margin: 0 0 8px;
-  padding-left: 18px;
-  color: var(--text);
+.license-title {
+  margin-top: 8px;
+  margin-bottom: 4px;
   font-size: 0.86rem;
 }
 
+.license-scroll {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 130px;
+  overflow: auto;
+}
+
+.license-list {
+  margin: 0;
+  padding: 8px 18px;
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
 .license-list li {
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .logs-header {

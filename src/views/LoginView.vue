@@ -61,7 +61,6 @@ function openHelp() {
     <div class="card login-card">
       <img src="/logo.svg" alt="MapaRadar" class="logo" />
       <h1>Atualizador MapaRadar</h1>
-      <p class="subtitle">Atualize os radares no seu GPS (iGO8 ou NDrive)</p>
       <form @submit.prevent="submit">
         <label>
           Usuário
@@ -106,8 +105,7 @@ function openHelp() {
 }
 
 .logo { width: 136px; height: 136px; display: block; margin: 0 auto 10px; }
-h1 { text-align: center; font-size: 1.45rem; margin: 0 0 8px; }
-.subtitle { text-align: center; color: var(--muted); margin: 0 auto 24px; font-size: 0.92rem; line-height: 1.4; max-width: 300px; }
+h1 { text-align: center; font-size: 1.45rem; margin: 0 0 24px; }
 form { display: flex; flex-direction: column; gap: 16px; }
 label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--muted); }
 input { padding: 11px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; color: var(--text); background: var(--card); transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
